@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 320">
+  <defs>
+    <linearGradient id="cribBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dfc4a1" />
+      <stop offset="100%" stop-color="#c89d74" />
+    </linearGradient>
+  </defs>
+
+  <rect x="65" y="125" width="430" height="120" rx="42" fill="url(#cribBody)" />
+  <rect x="100" y="90" width="360" height="62" rx="32" fill="#f4ddbf" fill-opacity="0.9" />
+  <rect x="88" y="98" width="26" height="128" rx="12" fill="#c9976f" />
+  <rect x="448" y="98" width="26" height="128" rx="12" fill="#c9976f" />
+  <rect x="148" y="215" width="34" height="78" rx="12" fill="#b5835e" />
+  <rect x="376" y="215" width="34" height="78" rx="12" fill="#b5835e" />
+  <rect x="65" y="125" width="430" height="120" rx="42" fill="none" stroke="#fff6e8" stroke-opacity="0.6" stroke-width="8" />
+  <rect x="100" y="172" width="360" height="28" rx="14" fill="#be8f68" fill-opacity="0.32" />
+</svg>

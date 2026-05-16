@@ -1,0 +1,90 @@
+import type { SceneConfig, SceneId } from "../types/diary";
+
+export const scenes: Record<SceneId, SceneConfig> = {
+  nursery: {
+    id: "nursery",
+    nameKey: "scenes.nursery.name",
+    descriptionKey: "scenes.nursery.description",
+    palette: {
+      sky: 0xe4eef2,
+      ground: 0xe8dcc9,
+      glow: 0xf5d4ab,
+    },
+    hotspots: [
+      {
+        id: "crib",
+        x: 0.25,
+        y: 0.7,
+        width: 220,
+        height: 120,
+        color: 0xd7b48d,
+        icon: "MOON",
+        labelKey: "memories.crib.label",
+        titleKey: "memories.crib.title",
+        bodyKey: "memories.crib.body",
+      },
+      {
+        id: "window",
+        x: 0.78,
+        y: 0.31,
+        width: 150,
+        height: 190,
+        color: 0x97b9ce,
+        icon: "STAR",
+        labelKey: "memories.window.label",
+        titleKey: "memories.window.title",
+        bodyKey: "memories.window.body",
+      },
+      {
+        id: "bear",
+        x: 0.54,
+        y: 0.66,
+        width: 110,
+        height: 150,
+        color: 0xb48967,
+        icon: "BEAR",
+        labelKey: "memories.bear.label",
+        titleKey: "memories.bear.title",
+        bodyKey: "memories.bear.body",
+      },
+    ],
+  },
+  garden: {
+    id: "garden",
+    nameKey: "scenes.garden.name",
+    descriptionKey: "scenes.garden.description",
+    palette: {
+      sky: 0xdbeed8,
+      ground: 0xc5d9bb,
+      glow: 0xffe1a6,
+    },
+    hotspots: [
+      {
+        id: "garden-promise",
+        x: 0.5,
+        y: 0.62,
+        width: 300,
+        height: 130,
+        color: 0x8eb67e,
+        icon: "BLOOM",
+        labelKey: "memories.garden-promise.label",
+        titleKey: "memories.garden-promise.title",
+        bodyKey: "memories.garden-promise.body",
+      },
+      {
+        id: "sun-path",
+        x: 0.27,
+        y: 0.52,
+        width: 190,
+        height: 96,
+        color: 0xf0d28f,
+        icon: "LIGHT",
+        labelKey: "memories.sun-path.label",
+        titleKey: "memories.sun-path.title",
+        bodyKey: "memories.sun-path.body",
+      },
+    ],
+  },
+};
+
+export const sceneSequence: SceneId[] = ["nursery", "garden"];

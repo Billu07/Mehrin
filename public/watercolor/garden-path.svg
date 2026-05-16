@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 260">
+  <defs>
+    <linearGradient id="pathPaint" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f4dd98" />
+      <stop offset="52%" stop-color="#e8c87f" />
+      <stop offset="100%" stop-color="#ddb66d" />
+    </linearGradient>
+  </defs>
+
+  <path
+    d="M46 172c112-96 232-126 350-120 150 8 246 66 320 128-84 30-196 46-336 42-146-4-252-16-334-50z"
+    fill="url(#pathPaint)"
+  />
+  <path
+    d="M46 172c112-96 232-126 350-120 150 8 246 66 320 128-84 30-196 46-336 42-146-4-252-16-334-50z"
+    fill="#c89457"
+    fill-opacity="0.24"
+  />
+</svg>

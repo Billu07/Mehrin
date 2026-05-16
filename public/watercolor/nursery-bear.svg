@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 420">
+  <defs>
+    <linearGradient id="bearBody" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c59473" />
+      <stop offset="100%" stop-color="#9e6e4f" />
+    </linearGradient>
+  </defs>
+
+  <circle cx="116" cy="98" r="44" fill="url(#bearBody)" />
+  <circle cx="244" cy="98" r="44" fill="url(#bearBody)" />
+  <circle cx="180" cy="172" r="102" fill="url(#bearBody)" />
+  <ellipse cx="180" cy="292" rx="112" ry="98" fill="url(#bearBody)" />
+  <circle cx="126" cy="288" r="40" fill="#b58262" />
+  <circle cx="234" cy="288" r="40" fill="#b58262" />
+  <ellipse cx="180" cy="182" rx="44" ry="38" fill="#e7c7ad" />
+  <circle cx="165" cy="171" r="6" fill="#533c2a" />
+  <circle cx="195" cy="171" r="6" fill="#533c2a" />
+  <ellipse cx="180" cy="191" rx="9" ry="7" fill="#533c2a" />
+  <path d="M168 205c7 9 17 9 24 0" fill="none" stroke="#533c2a" stroke-width="4" stroke-linecap="round" />
+  <ellipse cx="180" cy="252" rx="68" ry="58" fill="#d9b597" fill-opacity="0.7" />
+  <ellipse cx="180" cy="220" rx="122" ry="108" fill="#a17255" fill-opacity="0.16" />
+</svg>
