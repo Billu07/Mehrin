@@ -56,6 +56,13 @@ function isAdminPath(): boolean {
   return window.location.pathname.replace(/\/+$/, "").endsWith("/admin");
 }
 
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  const tag = target.tagName;
+  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT";
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
@@ -400,6 +407,8 @@ function App() {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (isTextEntryTarget(event.target)) return;
+
       if (event.key === "Escape" && scene !== "cover") {
         runMagicalTransition("index");
       }
