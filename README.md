@@ -19,6 +19,7 @@ Copy `.env.example` to `.env` and fill values:
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_EDITOR_ALLOWED_EMAILS=
+VITE_ADMIN_ACCESS_PASSWORD=
 VITE_VIEWER_ACCESS_PASSWORD=
 VITE_CLOUDINARY_CLOUD_NAME=
 VITE_CLOUDINARY_UPLOAD_PRESET=
@@ -27,6 +28,7 @@ VITE_CLOUDINARY_UPLOAD_PRESET=
 - If Supabase keys are set, editor access uses Supabase magic-link sign-in.
 - Access is allowed when user role is `admin`/`editor` in Supabase `app_metadata`,
   or email is listed in `VITE_EDITOR_ALLOWED_EMAILS` (comma-separated list supported).
+- `VITE_ADMIN_ACCESS_PASSWORD` enables direct admin passcode login (no email required).
 - If `VITE_VIEWER_ACCESS_PASSWORD` is set, `/` is password-protected for viewers.
 - If Supabase keys are not set, the local passcode fallback is used.
 - If Cloudinary keys are set, image/video slots can upload files directly from the in-page inspector.

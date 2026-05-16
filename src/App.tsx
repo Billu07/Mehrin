@@ -32,7 +32,8 @@ type MemoryLaneScene = "cover" | "opening" | "index" | "chapter" | "notes" | "fi
 
 const DUST_PARTICLE_COUNT = 34;
 const EDITOR_ACCESS_KEY = "memory_lane_editor_access_v1";
-const EDITOR_PASSPHRASE = "mehrin-lane-admin";
+const LEGACY_EDITOR_PASSPHRASE = "mehrin-lane-admin";
+const ADMIN_ACCESS_PASSWORD = (import.meta.env.VITE_ADMIN_ACCESS_PASSWORD as string | undefined)?.trim() ?? LEGACY_EDITOR_PASSPHRASE;
 const VIEWER_ACCESS_KEY = "memory_lane_viewer_access_v1";
 const VIEWER_ACCESS_PASSWORD = (import.meta.env.VITE_VIEWER_ACCESS_PASSWORD as string | undefined)?.trim() ?? "";
 const IS_VIEWER_GATE_ENABLED = VIEWER_ACCESS_PASSWORD.length > 0;
@@ -185,7 +186,8 @@ function App() {
   const activeElements = activePage?.elements ?? [];
   const selectedElement = activeElements.find((item) => item.id === selectedElementId) ?? null;
   const activePageChrome = normalizePageChrome(activePage?.chrome ?? DEFAULT_PAGE_CHROME);
-  const hasEditorAccess = isSupabaseEditorAuthEnabled ? canUserEdit(authUser) : hasPasscodeAccess;
+  const hasSupabaseEditorAccess = isSupabaseEditorAuthEnabled ? canUserEdit(authUser) : false;
+  const hasEditorAccess = hasSupabaseEditorAccess || hasPasscodeAccess;
   const canUseEditorTools = hasEditorAccess && !adminViewerPreview;
 
   const chapterNodes = useMemo(() => {
@@ -429,6 +431,26 @@ function App() {
   const requestEditorAccess = async (credentials?: { email?: string; passcode?: string }) => {
     if (typeof window === "undefined") return;
 
+    const pin = credentials?.passcode?.trim();
+    if (pin) {
+      if (pin !== ADMIN_ACCESS_PASSWORD) {
+        setAdminAuthMessage("Passcode is incorrect.");
+        return;
+      }
+      window.localStorage.setItem(EDITOR_ACCESS_KEY, "1");
+      setHasPasscodeAccess(true);
+      setAdminAuthMessage("Access granted.");
+      return;
+    }
+
+    const email = credentials?.email?.trim();
+    if (!email) return;
+
+    if (!isSupabaseEditorAuthEnabled || !supabaseClient) {
+      setAdminAuthMessage("Supabase email login is not enabled in this environment.");
+      return;
+    }
+
     if (isSupabaseEditorAuthEnabled && supabaseClient) {
       if (authUser && !hasEditorAccess) {
         const allowText =
@@ -447,9 +469,6 @@ function App() {
         return;
       }
 
-      const email = credentials?.email?.trim();
-      if (!email) return;
-
       const redirectTo = `${window.location.origin}/admin`;
       const { error } = await supabaseClient.auth.signInWithOtp({
         email,
@@ -462,53 +481,36 @@ function App() {
       setAdminAuthMessage("Magic link sent. Open the email and continue to /admin.");
       return;
     }
-
-    if (hasPasscodeAccess) {
-      setHasPasscodeAccess(false);
-      setIsEditorMode(false);
-      setAdminViewerPreview(false);
-      window.localStorage.removeItem(EDITOR_ACCESS_KEY);
-      return;
-    }
-
-    const pin = credentials?.passcode?.trim();
-    if (!pin) return;
-    if (pin !== EDITOR_PASSPHRASE) {
-      setAdminAuthMessage("Passcode is incorrect.");
-      return;
-    }
-    window.localStorage.setItem(EDITOR_ACCESS_KEY, "1");
-    setHasPasscodeAccess(true);
-    setAdminAuthMessage("Access granted.");
   };
 
   const signOutEditorSession = async () => {
     if (isSupabaseEditorAuthEnabled && supabaseClient && authUser) {
       await supabaseClient.auth.signOut();
-      setIsEditorMode(false);
-      setAdminViewerPreview(false);
-      setAdminAuthMessage("Signed out.");
-      return;
     }
-    if (!isSupabaseEditorAuthEnabled && hasPasscodeAccess) {
+    if (hasPasscodeAccess) {
       setHasPasscodeAccess(false);
-      setIsEditorMode(false);
-      setAdminViewerPreview(false);
       window.localStorage.removeItem(EDITOR_ACCESS_KEY);
-      setAdminAuthMessage("Signed out.");
     }
+    setIsEditorMode(false);
+    setAdminViewerPreview(false);
+    setAdminAuthMessage("Signed out.");
   };
 
-  const submitAdminLogin = async () => {
+  const submitAdminEmailLogin = async () => {
     setAdminAuthMessage("");
-    if (isSupabaseEditorAuthEnabled) {
-      if (!adminLoginEmail.trim()) {
-        setAdminAuthMessage("Enter an allowed editor email.");
-        return;
-      }
-      await requestEditorAccess({ email: adminLoginEmail.trim() });
+    if (!isSupabaseEditorAuthEnabled) {
+      setAdminAuthMessage("Supabase email login is not enabled in this environment.");
       return;
     }
+    if (!adminLoginEmail.trim()) {
+      setAdminAuthMessage("Enter an allowed editor email.");
+      return;
+    }
+    await requestEditorAccess({ email: adminLoginEmail.trim() });
+  };
+
+  const submitAdminPasscodeLogin = async () => {
+    setAdminAuthMessage("");
     if (!adminPasscode.trim()) {
       setAdminAuthMessage("Enter editor passcode.");
       return;
@@ -794,8 +796,31 @@ function App() {
           </section>
           <section className="admin-editor" style={{ marginTop: "0.9rem", maxWidth: "720px" }}>
             <h2>Restricted Access</h2>
-            <p className="admin-help">Only allowed editor emails can access admin and page editing controls.</p>
+            <p className="admin-help">
+              Use admin passcode for instant access, or use allowed email magic link if needed.
+            </p>
+            <div className="editor-grid">
+              <label>
+                Admin Passcode
+                <input
+                  type="password"
+                  value={adminPasscode}
+                  onChange={(event) => setAdminPasscode(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") void submitAdminPasscodeLogin();
+                  }}
+                  placeholder="Enter admin passcode"
+                />
+              </label>
+            </div>
+            <div className="admin-header-actions" style={{ marginTop: "0.8rem", justifyContent: "flex-start" }}>
+              <button type="button" onClick={() => void submitAdminPasscodeLogin()}>
+                Unlock With Passcode
+              </button>
+            </div>
             {isSupabaseEditorAuthEnabled ? (
+              <>
+                <p className="admin-help">Or use magic link with an allowed editor email.</p>
               <div className="editor-grid">
                 <label>
                   Editor Email
@@ -803,6 +828,9 @@ function App() {
                     type="email"
                     value={adminLoginEmail}
                     onChange={(event) => setAdminLoginEmail(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") void submitAdminEmailLogin();
+                    }}
                     placeholder="you@example.com"
                   />
                 </label>
@@ -811,23 +839,14 @@ function App() {
                   <input value={authUser?.email ?? "Not signed in"} readOnly />
                 </label>
               </div>
-            ) : (
-              <div className="editor-grid">
-                <label>
-                  Editor Passcode
-                  <input
-                    type="password"
-                    value={adminPasscode}
-                    onChange={(event) => setAdminPasscode(event.target.value)}
-                    placeholder="Enter passcode"
-                  />
-                </label>
-              </div>
-            )}
+              </>
+            ) : null}
             <div className="admin-header-actions" style={{ marginTop: "0.8rem", justifyContent: "flex-start" }}>
-              <button type="button" onClick={() => void submitAdminLogin()}>
-                {isSupabaseEditorAuthEnabled ? "Send Magic Link" : "Unlock Admin"}
-              </button>
+              {isSupabaseEditorAuthEnabled ? (
+                <button type="button" onClick={() => void submitAdminEmailLogin()}>
+                  Send Magic Link
+                </button>
+              ) : null}
               {authUser ? (
                 <button type="button" onClick={() => void signOutEditorSession()}>
                   Sign Out Current Session
