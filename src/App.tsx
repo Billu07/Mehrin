@@ -1,5 +1,7 @@
 import { AnimatePresence, motion, type PanInfo } from "framer-motion";
 import gsap from "gsap";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPanel } from "./components/AdminPanel";
 import { ChapterMap } from "./components/memoryLane/ChapterMap";
@@ -31,6 +33,8 @@ import type { User } from "@supabase/supabase-js";
 type MemoryLaneScene = "cover" | "opening" | "index" | "chapter" | "notes" | "finale";
 
 const DUST_PARTICLE_COUNT = 34;
+const EXPORT_FRAME_WIDTH = 1600;
+const EXPORT_FRAME_HEIGHT = 1000;
 const EDITOR_ACCESS_KEY = "memory_lane_editor_access_v1";
 const LEGACY_EDITOR_PASSPHRASE = "mehrin-lane-admin";
 const ADMIN_ACCESS_PASSWORD = (import.meta.env.VITE_ADMIN_ACCESS_PASSWORD as string | undefined)?.trim() ?? LEGACY_EDITOR_PASSPHRASE;
@@ -179,6 +183,9 @@ function App() {
   const [adminAuthMessage, setAdminAuthMessage] = useState<string>("");
   const [viewerPasswordInput, setViewerPasswordInput] = useState("");
   const [viewerAuthMessage, setViewerAuthMessage] = useState<string>("");
+  const [isPrintExporting, setIsPrintExporting] = useState(false);
+  const [isDigitalExporting, setIsDigitalExporting] = useState(false);
+  const [exportStatusMessage, setExportStatusMessage] = useState("");
   const enableMagicalCursor = false;
 
   const { stageStyle, isPortrait } = useResponsiveScale();
@@ -186,6 +193,8 @@ function App() {
   const coverArtworkRef = useRef<HTMLDivElement | null>(null);
   const chapterFrameRef = useRef<HTMLDivElement | null>(null);
   const chapterCanvasRef = useRef<HTMLDivElement | null>(null);
+  const exportRootRef = useRef<HTMLDivElement | null>(null);
+  const printTitleRestoreRef = useRef<string | null>(null);
   const isTransitioningRef = useRef(false);
 
   const normalizedChapterIndex = safePages.length > 0 ? clamp(chapterIndex, 0, safePages.length - 1) : 0;
@@ -436,6 +445,135 @@ function App() {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [goToPage, normalizedChapterIndex, runMagicalTransition, safePages.length, scene]);
+
+  useEffect(() => {
+    const onAfterPrint = () => {
+      setIsPrintExporting(false);
+      if (printTitleRestoreRef.current !== null) {
+        document.title = printTitleRestoreRef.current;
+        printTitleRestoreRef.current = null;
+      }
+    };
+    window.addEventListener("afterprint", onAfterPrint);
+    return () => window.removeEventListener("afterprint", onAfterPrint);
+  }, []);
+
+  const waitForExportAssets = useCallback(async () => {
+    if (document.fonts?.ready) {
+      await document.fonts.ready;
+    }
+
+    const root = exportRootRef.current;
+    if (!root) return;
+
+    const imagePromises = Array.from(root.querySelectorAll("img")).map(
+      (image) =>
+        new Promise<void>((resolve) => {
+          if (image.complete) {
+            resolve();
+            return;
+          }
+          const onDone = () => {
+            image.removeEventListener("load", onDone);
+            image.removeEventListener("error", onDone);
+            resolve();
+          };
+          image.addEventListener("load", onDone);
+          image.addEventListener("error", onDone);
+        }),
+    );
+
+    await Promise.all(imagePromises);
+  }, []);
+
+  const buildExportFilename = (variant: "print" | "digital") => {
+    const now = new Date();
+    const tag = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(
+      2,
+      "0",
+    )}`;
+    return `mehrins-memory-lane-${variant}-${tag}.pdf`;
+  };
+
+  const exportPrintPdf = async () => {
+    if (isPrintExporting || isDigitalExporting) return;
+    setExportStatusMessage("");
+    setIsPrintExporting(true);
+    try {
+      await waitForExportAssets();
+      printTitleRestoreRef.current = document.title;
+      document.title = buildExportFilename("print").replace(/\.pdf$/, "");
+      window.setTimeout(() => {
+        window.print();
+        window.setTimeout(() => {
+          if (printTitleRestoreRef.current !== null) {
+            document.title = printTitleRestoreRef.current;
+            printTitleRestoreRef.current = null;
+          }
+          setIsPrintExporting(false);
+        }, 15000);
+      }, 80);
+    } catch (error) {
+      if (printTitleRestoreRef.current !== null) {
+        document.title = printTitleRestoreRef.current;
+        printTitleRestoreRef.current = null;
+      }
+      setIsPrintExporting(false);
+      const message = error instanceof Error ? error.message : "Print export failed.";
+      setExportStatusMessage(message);
+    }
+  };
+
+  const exportDigitalPdf = async () => {
+    if (isPrintExporting || isDigitalExporting) return;
+
+    const root = exportRootRef.current;
+    if (!root) {
+      setExportStatusMessage("Export renderer is not ready yet.");
+      return;
+    }
+
+    setExportStatusMessage("");
+    setIsDigitalExporting(true);
+
+    try {
+      await waitForExportAssets();
+      const sheets = Array.from(root.querySelectorAll<HTMLElement>(".export-page-sheet"));
+      if (sheets.length === 0) {
+        setExportStatusMessage("No pages available for export.");
+        return;
+      }
+
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "px",
+        format: [EXPORT_FRAME_WIDTH, EXPORT_FRAME_HEIGHT],
+        compress: true,
+      });
+
+      for (let index = 0; index < sheets.length; index += 1) {
+        const sheet = sheets[index];
+        const canvas = await html2canvas(sheet, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#1f172b",
+          logging: false,
+        });
+        const imageData = canvas.toDataURL("image/jpeg", 0.92);
+        if (index > 0) {
+          pdf.addPage([EXPORT_FRAME_WIDTH, EXPORT_FRAME_HEIGHT], "landscape");
+        }
+        pdf.addImage(imageData, "JPEG", 0, 0, EXPORT_FRAME_WIDTH, EXPORT_FRAME_HEIGHT, undefined, "FAST");
+      }
+
+      pdf.save(buildExportFilename("digital"));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Digital PDF export failed.";
+      setExportStatusMessage(message);
+    } finally {
+      setIsDigitalExporting(false);
+    }
+  };
 
   const requestEditorAccess = async (credentials?: { email?: string; passcode?: string }) => {
     if (typeof window === "undefined") return;
@@ -775,6 +913,51 @@ function App() {
     return <p>{element.text ? getLocalizedText(language, element.text) : "Text"}</p>;
   };
 
+  const renderExportElementBody = (page: BookPage, element: BookPageElement) => {
+    if (element.type === "image") {
+      return element.src ? (
+        <img src={element.src} alt={getLocalizedText(language, element.label)} crossOrigin="anonymous" />
+      ) : (
+        <div className="empty-slot">Image slot</div>
+      );
+    }
+
+    if (element.type === "video") {
+      return (
+        <div className="export-media-placeholder">
+          <span>Video Memory</span>
+          <p>{element.src ? element.src : "Add video URL in editor mode"}</p>
+        </div>
+      );
+    }
+
+    if (element.type === "audio") {
+      return (
+        <div className="export-media-placeholder">
+          <span>Audio Note</span>
+          <p>{element.src ? element.src : "Add audio URL in editor mode"}</p>
+        </div>
+      );
+    }
+
+    if (element.type === "secret") {
+      const secretKey = `${page.id}-${element.id}`;
+      const isOpen = openedSecrets[secretKey];
+      return (
+        <div className={`secret-seal ${isOpen ? "revealed" : ""}`}>
+          <span>Secret</span>
+          {element.revealText ? <p>{getLocalizedText(language, element.revealText)}</p> : null}
+        </div>
+      );
+    }
+
+    if (element.type === "sticker") {
+      return <p className="sticker-text">{element.text ? getLocalizedText(language, element.text) : "*"}</p>;
+    }
+
+    return <p>{element.text ? getLocalizedText(language, element.text) : "Text"}</p>;
+  };
+
   if (adminPath) {
     if (isSupabaseEditorAuthEnabled && isAuthLoading) {
       return (
@@ -942,6 +1125,12 @@ function App() {
                 <button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>
                   English
                 </button>
+                <button type="button" onClick={() => void exportPrintPdf()} disabled={isPrintExporting || isDigitalExporting}>
+                  {isPrintExporting ? "Preparing print..." : "Print PDF"}
+                </button>
+                <button type="button" onClick={() => void exportDigitalPdf()} disabled={isDigitalExporting || isPrintExporting}>
+                  {isDigitalExporting ? "Exporting..." : "Digital PDF"}
+                </button>
                 {hasEditorAccess ? (
                   <button type="button" className={adminViewerPreview ? "active" : ""} onClick={toggleAdminViewerPreview}>
                     {adminViewerPreview ? "Editor View" : "Viewer View"}
@@ -956,6 +1145,9 @@ function App() {
                 <a href="/admin">Admin Portal</a>
               </div>
             </header>
+          ) : null}
+          {exportStatusMessage && scene !== "cover" && scene !== "opening" ? (
+            <p className="export-status-banner layer-foreground">{exportStatusMessage}</p>
           ) : null}
 
           <div className="scene-stack" role="application" aria-label="Mehrin's Memory Lane interactive scrapbook">
@@ -1587,6 +1779,42 @@ function App() {
             </footer>
           ) : null}
         </div>
+      </div>
+
+      <div ref={exportRootRef} className="print-export-root" aria-hidden="true">
+        {safePages.map((page, pageIndex) => (
+          <section
+            key={`export-${page.id}-${pageIndex}`}
+            className={`export-page-sheet ${page.layoutTemplate === "chapter-divider" ? "is-divider" : ""}`}
+          >
+            <header className="export-page-meta">
+              <p>
+                {getLocalizedText(language, page.chapter)} - {getLocalizedText(language, page.title)}
+              </p>
+              <p>Page {pageIndex + 1}</p>
+            </header>
+            <div className={`export-page-canvas page-canvas ${page.layoutTemplate === "chapter-divider" ? "is-divider" : ""}`}>
+              <p className="page-date">{page.dateLabel}</p>
+              {page.elements.map((element) => (
+                <div
+                  key={`${page.id}-${element.id}`}
+                  className={`page-element type-${element.type}`}
+                  style={{
+                    left: `${element.x}%`,
+                    top: `${element.y}%`,
+                    width: `${element.width}%`,
+                    height: `${element.height}%`,
+                    transform: `rotate(${element.rotation}deg)`,
+                    zIndex: element.zIndex,
+                    opacity: element.opacity ?? 1,
+                  }}
+                >
+                  {renderExportElementBody(page, element)}
+                </div>
+              ))}
+            </div>
+          </section>
+        ))}
       </div>
 
       <div className="magical-transition-overlay" ref={transitionOverlayRef} aria-hidden="true">

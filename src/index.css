@@ -181,6 +181,26 @@ body {
   transform: translateY(-1px);
 }
 
+.topbar-actions button:disabled {
+  opacity: 0.6;
+  transform: none;
+  cursor: not-allowed;
+}
+
+.export-status-banner {
+  position: absolute;
+  top: 88px;
+  right: 30px;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(245, 214, 156, 0.5);
+  background: rgba(34, 22, 52, 0.8);
+  color: #ffe8ba;
+  font-family: "Hind Siliguri", sans-serif;
+  font-size: 12px;
+}
+
 .scene-nav {
   position: static;
   display: flex;
@@ -1000,6 +1020,52 @@ body {
   color: rgba(88, 59, 43, 0.7);
 }
 
+.print-export-root {
+  position: fixed;
+  top: 0;
+  left: -99999px;
+  width: 1600px;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.export-page-sheet {
+  width: 1600px;
+  height: 1000px;
+  padding: 46px;
+  background: linear-gradient(150deg, #271a35, #1d1428);
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
+.export-page-sheet.is-divider {
+  background:
+    radial-gradient(circle at 52% 14%, rgba(233, 211, 157, 0.14), transparent 30%),
+    linear-gradient(150deg, #1c1430, #140f24);
+}
+
+.export-page-meta {
+  margin: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: "Cinzel", serif;
+  color: #f4ddb0;
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+
+.export-page-meta p {
+  margin: 0;
+}
+
+.export-page-canvas {
+  min-height: 0;
+  height: 100%;
+}
+
 .page-element {
   position: absolute;
   padding: 10px;
@@ -1100,6 +1166,29 @@ body {
   color: rgba(80, 55, 43, 0.72);
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.export-media-placeholder {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.export-media-placeholder span {
+  font-family: "Cinzel", serif;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.export-media-placeholder p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  opacity: 0.72;
+  word-break: break-word;
 }
 
 .element-inspector {
@@ -2024,6 +2113,13 @@ body {
     flex-wrap: wrap;
   }
 
+  .is-portrait .export-status-banner {
+    top: 140px;
+    left: 24px;
+    right: 24px;
+    font-size: 11px;
+  }
+
   .is-portrait .scene-nav {
     justify-content: flex-start;
   }
@@ -2219,6 +2315,52 @@ body {
   .admin-grid,
   .json-tools {
     grid-template-columns: 1fr;
+  }
+}
+
+@page {
+  size: landscape;
+  margin: 10mm;
+}
+
+@media print {
+  html,
+  body {
+    margin: 0;
+    background: #ffffff;
+  }
+
+  .memory-lane-root,
+  .magical-transition-overlay {
+    display: none !important;
+  }
+
+  .print-export-root {
+    position: static;
+    left: 0;
+    width: auto;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .export-page-sheet {
+    width: 100%;
+    max-width: 260mm;
+    height: auto;
+    aspect-ratio: 16 / 10;
+    margin: 0 auto 8mm;
+    padding: 8mm;
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .export-page-sheet:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .export-page-canvas {
+    height: 100%;
   }
 }
 
