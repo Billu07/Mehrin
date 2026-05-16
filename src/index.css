@@ -1397,6 +1397,7 @@ body {
   padding: 8px 14px;
   font-family: "Cinzel", serif;
   font-size: 13px;
+  white-space: nowrap;
   color: #ffedd1;
   background: linear-gradient(145deg, rgba(87, 53, 101, 0.86), rgba(65, 36, 80, 0.86));
   cursor: none;
@@ -1430,15 +1431,16 @@ body {
 }
 
 .chapter-prev-button {
-  left: 48%;
+  left: auto;
+  right: 52%;
   bottom: 66px;
-  --chapter-button-transform: translateX(-108%);
+  --chapter-button-transform: none;
 }
 
 .chapter-next-button {
   left: 52%;
   bottom: 66px;
-  --chapter-button-transform: translateX(8%);
+  --chapter-button-transform: none;
 }
 
 .chapter-overlays {
@@ -2137,15 +2139,16 @@ body {
   }
 
   .is-portrait .chapter-prev-button {
-    left: 40%;
+    left: auto;
+    right: 56%;
     bottom: 120px;
-    transform: translateX(-100%);
+    --chapter-button-transform: none;
   }
 
   .is-portrait .chapter-next-button {
-    left: 60%;
+    left: 56%;
     bottom: 120px;
-    transform: translateX(0);
+    --chapter-button-transform: none;
   }
 
   .is-portrait .element-inspector {
