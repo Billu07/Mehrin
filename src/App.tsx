@@ -15,6 +15,7 @@ import {
   type BookLanguage,
   type BookPage,
   type BookPageElement,
+  type BookPageElementFrameStyle,
   type BookPageElementType,
   type BookPageLayout,
   type BookSpecialNote,
@@ -35,6 +36,9 @@ type MemoryLaneScene = "cover" | "opening" | "index" | "chapter" | "notes" | "fi
 const DUST_PARTICLE_COUNT = 34;
 const EXPORT_FRAME_WIDTH = 1600;
 const EXPORT_FRAME_HEIGHT = 1000;
+const DEFAULT_FILL_COLOR = "#fff6e8";
+const DEFAULT_BORDER_COLOR = "#81593f";
+const DEFAULT_TEXT_COLOR = "#3f2c24";
 const EDITOR_ACCESS_KEY = "memory_lane_editor_access_v1";
 const LEGACY_EDITOR_PASSPHRASE = "mehrin-lane-admin";
 const ADMIN_ACCESS_PASSWORD = (import.meta.env.VITE_ADMIN_ACCESS_PASSWORD as string | undefined)?.trim() ?? LEGACY_EDITOR_PASSPHRASE;
@@ -49,6 +53,14 @@ const SCENE_SEQUENCE: Array<{ id: MemoryLaneScene; label: string }> = [
   { id: "chapter", label: "Page" },
   { id: "notes", label: "Notes" },
   { id: "finale", label: "Finale" },
+];
+
+const FRAME_STYLE_OPTIONS: Array<{ value: BookPageElementFrameStyle; label: string }> = [
+  { value: "card", label: "Classic Card" },
+  { value: "none", label: "No Frame" },
+  { value: "gold", label: "Gold Frame" },
+  { value: "ink", label: "Ink Frame" },
+  { value: "tape", label: "Tape Scrapbook" },
 ];
 
 function getLocalizedText(language: BookLanguage, text: { en: string; bn: string }): string {
@@ -79,6 +91,19 @@ function makeLocalizedCopy(value: string): { en: string; bn: string } {
   return { en: value, bn: value };
 }
 
+function colorInputValue(color: string | undefined, fallback: string): string {
+  if (typeof color !== "string") return fallback;
+  return /^#[0-9a-fA-F]{6}$/.test(color) ? color : fallback;
+}
+
+function getElementVisualVars(element: BookPageElement): Record<string, string> {
+  const vars: Record<string, string> = {};
+  if (element.fillColor) vars["--element-fill"] = element.fillColor;
+  if (element.strokeColor) vars["--element-stroke"] = element.strokeColor;
+  if (element.textColor) vars["--element-text"] = element.textColor;
+  return vars;
+}
+
 function createElement(type: BookPageElementType, language: BookLanguage): BookPageElement {
   const base: BookPageElement = {
     id: createElementId(type),
@@ -91,6 +116,10 @@ function createElement(type: BookPageElementType, language: BookLanguage): BookP
     rotation: 0,
     zIndex: 3,
     rounded: true,
+    frameStyle: "card",
+    fillColor: DEFAULT_FILL_COLOR,
+    strokeColor: DEFAULT_BORDER_COLOR,
+    textColor: DEFAULT_TEXT_COLOR,
   };
 
   if (type === "text") {
@@ -156,7 +185,19 @@ function createElement(type: BookPageElementType, language: BookLanguage): BookP
 }
 
 function App() {
-  const { pages, setPages, resetPages } = useBookPages();
+  const {
+    pages,
+    setPages,
+    resetPages,
+    savePages,
+    undoPages,
+    redoPages,
+    revertToSaved,
+    canUndo,
+    canRedo,
+    hasUnsavedChanges,
+    lastSavedAt,
+  } = useBookPages();
   const adminPath = isAdminPath();
   const safePages = pages.length > 0 ? pages : magicalBookPages;
   const editorAllowedEmails = getEditorAllowedEmails();
@@ -259,6 +300,19 @@ function App() {
       ),
     [safePages],
   );
+  const formattedLastSavedAt = useMemo(() => {
+    if (!lastSavedAt) return "";
+    return new Intl.DateTimeFormat(undefined, {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(lastSavedAt);
+  }, [lastSavedAt]);
+  const editorSaveStateLabel = hasUnsavedChanges
+    ? "Unsaved changes"
+    : lastSavedAt
+      ? `Saved ${formattedLastSavedAt}`
+      : "Not saved yet";
 
   useEffect(() => {
     if (!isSupabaseEditorAuthEnabled || !supabaseClient) return undefined;
@@ -457,6 +511,16 @@ function App() {
     window.addEventListener("afterprint", onAfterPrint);
     return () => window.removeEventListener("afterprint", onAfterPrint);
   }, []);
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return undefined;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasUnsavedChanges]);
 
   const waitForExportAssets = useCallback(async () => {
     if (document.fonts?.ready) {
@@ -797,6 +861,25 @@ function App() {
     setSelectedElementId(element.id);
   };
 
+  const addPlainTextElement = () => {
+    const plain = createElement("text", language);
+    const next: BookPageElement = {
+      ...plain,
+      label: makeLocalizedCopy("Plain Text"),
+      frameStyle: "none",
+      fillColor: "transparent",
+      strokeColor: "transparent",
+      textColor: DEFAULT_TEXT_COLOR,
+      width: 42,
+      height: 14,
+    };
+    updatePageAt(normalizedChapterIndex, (page) => ({
+      ...page,
+      elements: [...page.elements, next],
+    }));
+    setSelectedElementId(next.id);
+  };
+
   const uploadElementAsset = async (elementId: string, file: File) => {
     if (!isCloudinaryUploadEnabled) {
       window.alert("Cloudinary upload is not configured yet.");
@@ -1050,7 +1133,21 @@ function App() {
         </main>
       );
     }
-    return <AdminPanel pages={pages} setPages={setPages} resetPages={resetPages} />;
+    return (
+      <AdminPanel
+        pages={pages}
+        setPages={setPages}
+        resetPages={resetPages}
+        savePages={savePages}
+        undoPages={undoPages}
+        redoPages={redoPages}
+        revertToSaved={revertToSaved}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        hasUnsavedChanges={hasUnsavedChanges}
+        lastSavedAt={lastSavedAt}
+      />
+    );
   }
 
   if (IS_VIEWER_GATE_ENABLED && !hasViewerAccess && !hasEditorAccess) {
@@ -1125,6 +1222,23 @@ function App() {
                 <button type="button" className={language === "en" ? "active" : ""} onClick={() => setLanguage("en")}>
                   English
                 </button>
+                {hasEditorAccess ? (
+                  <>
+                    <button type="button" onClick={undoPages} disabled={!canUndo}>
+                      Undo
+                    </button>
+                    <button type="button" onClick={redoPages} disabled={!canRedo}>
+                      Redo
+                    </button>
+                    <button type="button" onClick={revertToSaved} disabled={!hasUnsavedChanges}>
+                      Revert
+                    </button>
+                    <button type="button" className={hasUnsavedChanges ? "active" : ""} onClick={savePages} disabled={!hasUnsavedChanges}>
+                      Save
+                    </button>
+                    <span className={`editor-save-state ${hasUnsavedChanges ? "unsaved" : "saved"}`}>{editorSaveStateLabel}</span>
+                  </>
+                ) : null}
                 <button type="button" onClick={() => void exportPrintPdf()} disabled={isPrintExporting || isDigitalExporting}>
                   {isPrintExporting ? "Preparing print..." : "Print PDF"}
                 </button>
@@ -1246,6 +1360,7 @@ function App() {
                         {isEditorMode ? (
                           <>
                             <button type="button" onClick={() => addElement("text")}>+ Text</button>
+                            <button type="button" onClick={addPlainTextElement}>+ Plain Text</button>
                             <button type="button" onClick={() => addElement("image")}>+ Image</button>
                             <button type="button" onClick={() => addElement("video")}>+ Video</button>
                             <button type="button" onClick={() => addElement("audio")}>+ Audio</button>
@@ -1267,7 +1382,7 @@ function App() {
                       {activeElements.map((element) => (
                         <motion.div
                           key={element.id}
-                          className={`page-element type-${element.type} ${selectedElementId === element.id ? "selected" : ""}`}
+                          className={`page-element type-${element.type} frame-${element.frameStyle ?? "card"} ${selectedElementId === element.id ? "selected" : ""}`}
                           style={{
                             left: `${element.x}%`,
                             top: `${element.y}%`,
@@ -1276,6 +1391,7 @@ function App() {
                             rotate: element.rotation,
                             zIndex: element.zIndex,
                             opacity: element.opacity ?? 1,
+                            ...getElementVisualVars(element),
                           }}
                           drag={canUseEditorTools && isEditorMode}
                           dragMomentum={false}
@@ -1506,6 +1622,99 @@ function App() {
                                   />
                                 </label>
                               </div>
+                              <div className="inspector-grid-two">
+                                <label>
+                                  Frame
+                                  <select
+                                    value={selectedElement.frameStyle ?? "card"}
+                                    onChange={(event) =>
+                                      updateElement(selectedElement.id, (element) => ({
+                                        ...element,
+                                        frameStyle: event.target.value as BookPageElementFrameStyle,
+                                      }))
+                                    }
+                                  >
+                                    {FRAME_STYLE_OPTIONS.map((option) => (
+                                      <option key={option.value} value={option.value}>
+                                        {option.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </label>
+                                <label>
+                                  Opacity
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={1}
+                                    step={0.05}
+                                    value={selectedElement.opacity ?? 1}
+                                    onChange={(event) =>
+                                      updateElement(selectedElement.id, (element) => ({
+                                        ...element,
+                                        opacity: clamp(Number(event.target.value), 0, 1),
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <label>
+                                  Box Fill
+                                  <input
+                                    type="color"
+                                    value={colorInputValue(selectedElement.fillColor, DEFAULT_FILL_COLOR)}
+                                    onChange={(event) =>
+                                      updateElement(selectedElement.id, (element) => ({
+                                        ...element,
+                                        fillColor: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                </label>
+                                <label>
+                                  Box Border
+                                  <input
+                                    type="color"
+                                    value={colorInputValue(selectedElement.strokeColor, DEFAULT_BORDER_COLOR)}
+                                    onChange={(event) =>
+                                      updateElement(selectedElement.id, (element) => ({
+                                        ...element,
+                                        strokeColor: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              </div>
+                              {selectedElement.type === "text" ||
+                              selectedElement.type === "sticker" ||
+                              selectedElement.type === "secret" ? (
+                                <label>
+                                  Text Color
+                                  <input
+                                    type="color"
+                                    value={colorInputValue(selectedElement.textColor, DEFAULT_TEXT_COLOR)}
+                                    onChange={(event) =>
+                                      updateElement(selectedElement.id, (element) => ({
+                                        ...element,
+                                        textColor: event.target.value,
+                                      }))
+                                    }
+                                  />
+                                </label>
+                              ) : null}
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  updateElement(selectedElement.id, (element) => ({
+                                    ...element,
+                                    frameStyle: element.type === "text" ? "none" : "card",
+                                    fillColor: DEFAULT_FILL_COLOR,
+                                    strokeColor: DEFAULT_BORDER_COLOR,
+                                    textColor: DEFAULT_TEXT_COLOR,
+                                  }))
+                                }
+                              >
+                                Reset Style
+                              </button>
                               {selectedElement.type === "text" || selectedElement.type === "sticker" ? (
                                 <label>
                                   Text
@@ -1798,7 +2007,7 @@ function App() {
               {page.elements.map((element) => (
                 <div
                   key={`${page.id}-${element.id}`}
-                  className={`page-element type-${element.type}`}
+                  className={`page-element type-${element.type} frame-${element.frameStyle ?? "card"}`}
                   style={{
                     left: `${element.x}%`,
                     top: `${element.y}%`,
@@ -1807,6 +2016,7 @@ function App() {
                     transform: `rotate(${element.rotation}deg)`,
                     zIndex: element.zIndex,
                     opacity: element.opacity ?? 1,
+                    ...getElementVisualVars(element),
                   }}
                 >
                   {renderExportElementBody(page, element)}

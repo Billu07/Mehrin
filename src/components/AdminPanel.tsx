@@ -47,12 +47,37 @@ interface AdminPanelProps {
   pages: BookPage[];
   setPages: Dispatch<SetStateAction<BookPage[]>>;
   resetPages: () => void;
+  savePages: () => void;
+  undoPages: () => void;
+  redoPages: () => void;
+  revertToSaved: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  hasUnsavedChanges: boolean;
+  lastSavedAt: number | null;
 }
 
-export function AdminPanel({ pages, setPages, resetPages }: AdminPanelProps) {
+export function AdminPanel({
+  pages,
+  setPages,
+  resetPages,
+  savePages,
+  undoPages,
+  redoPages,
+  revertToSaved,
+  canUndo,
+  canRedo,
+  hasUnsavedChanges,
+  lastSavedAt,
+}: AdminPanelProps) {
   const [selectedPageIndex, setSelectedPageIndex] = useState(0);
   const safeSelectedPageIndex = Math.min(selectedPageIndex, Math.max(0, pages.length - 1));
   const selectedPage = pages[safeSelectedPageIndex];
+  const savedLabel = hasUnsavedChanges
+    ? "Unsaved changes"
+    : lastSavedAt
+      ? `Saved ${new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(lastSavedAt)}`
+      : "Not saved yet";
 
   const updateSelectedPage = (updater: (page: BookPage) => BookPage) => {
     setPages((current) =>
@@ -123,9 +148,22 @@ export function AdminPanel({ pages, setPages, resetPages }: AdminPanelProps) {
           <a href="/" className="admin-link">
             Open Diary
           </a>
+          <button type="button" onClick={undoPages} disabled={!canUndo}>
+            Undo
+          </button>
+          <button type="button" onClick={redoPages} disabled={!canRedo}>
+            Redo
+          </button>
+          <button type="button" onClick={revertToSaved} disabled={!hasUnsavedChanges}>
+            Revert
+          </button>
+          <button type="button" className={hasUnsavedChanges ? "active" : ""} onClick={savePages} disabled={!hasUnsavedChanges}>
+            Save
+          </button>
           <button type="button" onClick={resetPages}>
             Reset Default
           </button>
+          <span className={`admin-save-status ${hasUnsavedChanges ? "unsaved" : "saved"}`}>{savedLabel}</span>
         </div>
       </header>
 

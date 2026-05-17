@@ -12,6 +12,7 @@ interface LocalizedText {
 }
 
 export type BookPageElementType = "text" | "image" | "video" | "audio" | "secret" | "sticker";
+export type BookPageElementFrameStyle = "card" | "none" | "gold" | "ink" | "tape";
 
 export interface BookPageElement {
   id: string;
@@ -28,6 +29,10 @@ export interface BookPageElement {
   zIndex: number;
   rounded?: boolean;
   opacity?: number;
+  frameStyle?: BookPageElementFrameStyle;
+  fillColor?: string;
+  strokeColor?: string;
+  textColor?: string;
 }
 
 export interface PageActionControl {
